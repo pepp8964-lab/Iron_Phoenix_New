@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Генератор наказів v2.1</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            colors: {
+              'primary': '#0A0A0A',      // Near Black
+              'secondary': '#1C1C1C',    // Dark Gray (for cards)
+              'accent': '#3D3D3D',      // Mid-Gray (for borders)
+              'highlight': '#FFFFFF',    // White (for titles)
+              'text-primary': '#FFFFFF', // White
+              'text-secondary': '#B0B0B0',// Dimmed White (for helpers)
+              'brand': '#EF4444',       // Bright Red (Red-500)
+              'white': '#FFFFFF',
+              'black': '#000000',
+            },
+            boxShadow: {
+              'glow-brand': '0 0 15px 0px rgba(239, 68, 68, 0.6)',
+              'glow-white-subtle': '0 0 25px -5px rgba(255, 255, 255, 0.04)',
+            },
+            textShadow: {
+              'glow-white': '0 0 10px rgba(255, 255, 255, 0.5)',
+            },
+          },
+        },
+        plugins: [
+            function ({ addUtilities }) {
+              addUtilities({
+                '.text-shadow-glow-white': {
+                  textShadow: '0 0 8px rgba(255, 255, 255, 0.5)',
+                },
+              })
+            }
+        ],
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+  }
+}
+</script>
+</head>
+  <body class="bg-primary text-text-primary antialiased font-sans">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
