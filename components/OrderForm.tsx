@@ -7,16 +7,16 @@ import { Select } from './ui/Select';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { TrashIcon, PlusIcon, CalendarDaysIcon } from './icons';
+import { AutocompleteTextarea } from '../App';
 
 interface OrderFormProps {
   order: OrderItem;
   onUpdate: (order: OrderItem) => void;
-  onRemove: () => void;
-  index: number;
+  isOnlyItem: boolean;
 }
 
 const Fieldset: React.FC<{ legend: string; children: React.ReactNode }> = ({ legend, children }) => (
-  <fieldset className="border border-accent/30 rounded-lg p-4 mt-6">
+  <fieldset className="border border-border/50 rounded-lg p-4 mt-6">
     <legend className="px-2 text-sm font-semibold text-brand">{legend}</legend>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
       {children}
@@ -25,7 +25,7 @@ const Fieldset: React.FC<{ legend: string; children: React.ReactNode }> = ({ leg
 );
 
 
-export const OrderForm: React.FC<OrderFormProps> = ({ order, onUpdate, onRemove, index }) => {
+export const OrderForm: React.FC<OrderFormProps> = ({ order, onUpdate }) => {
   
   const handleFieldChange = (field: keyof OrderItem, value: any) => {
     onUpdate({ ...order, [field]: value });
@@ -58,19 +58,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ order, onUpdate, onRemove,
 
   return (
     <Card>
-      <div className="flex justify-between items-start mb-4">
-        <div>
-           <h2 className="text-2xl font-bold text-highlight text-shadow-glow-white">{UI_LABELS.ORDER_ITEM_TITLE}</h2>
-           <span className="text-4xl font-extrabold text-accent/30 -mt-2 block">#{index + 1}</span>
-        </div>
-        <Button onClick={onRemove} variant="danger">
-            <TrashIcon className="w-5 h-5" />
-            <span className="hidden sm:inline">{UI_LABELS.REMOVE_ITEM}</span>
-        </Button>
-      </div>
-      
-      {/* Order Type */}
-      <div className="bg-primary p-2 rounded-lg inline-flex gap-2">
+      <div className="bg-primary p-2 rounded-lg inline-flex gap-2 mb-4">
         <Button variant={order.orderType === 'single' ? 'primary' : 'secondary'} onClick={() => setOrderType('single')}>Одна особа</Button>
         <Button variant={order.orderType === 'multiple' ? 'primary' : 'secondary'} onClick={() => setOrderType('multiple')}>Декілька осіб</Button>
       </div>
@@ -124,7 +112,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ order, onUpdate, onRemove,
               onChange={e => handleFieldChange('reason', e.target.value)}
               placeholder={order.orderType === 'single' ? 'напр. неналежно виконував свої службові обов’язки...' : 'напр. 04.08.2025 року несвоєчасно приступили до проведення занять...'}
               rows={3}
-              className="w-full bg-secondary border border-accent rounded-lg px-3 py-2 text-text-primary placeholder-accent focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand transition-colors duration-200"
+              className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-text-primary placeholder-accent focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand transition-colors duration-200"
           />
           <p className="text-xs text-accent mt-1.5">
               {order.orderType === 'single' ? "Буде вставлено після '..., який ...'" : "Буде вставлено після '..., які ...'"}
@@ -134,9 +122,17 @@ export const OrderForm: React.FC<OrderFormProps> = ({ order, onUpdate, onRemove,
 
       <Fieldset legend={order.orderType === 'single' ? 'Дані особи' : 'Список осіб'}>
         <div className="md:col-span-2 flex flex-col gap-3">
-          {order.persons.map((person, personIndex) => (
-            <div key={person.id} className="grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-2 p-3 border border-accent/20 rounded-lg bg-primary/50">
-                <Input containerClassName="md:col-span-4" label="Посада (в родовому)" placeholder="інструктора відділення..." value={person.position} onChange={e => handlePersonChange(person.id, 'position', e.target.value)} />
+          {order.persons.map((person) => (
+            <div key={person.id} className="grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-2 p-3 border border-border/30 rounded-lg bg-primary/50">
+                <div className="md:col-span-4">
+                  <AutocompleteTextarea 
+                      label="Посада (в родовому)" 
+                      placeholder="інструктора відділення..." 
+                      value={person.position} 
+                      onChange={e => handlePersonChange(person.id, 'position', e.target.value)}
+                      rows={4}
+                  />
+                </div>
                 <Input containerClassName="md:col-span-1" label="Звання" placeholder="капітана" value={person.rank} onChange={e => handlePersonChange(person.id, 'rank', e.target.value)} />
                 <Input containerClassName="md:col-span-2" label="Прізвище І. П." placeholder="ЄЛІСЄЄВ Євген Іванович" value={person.name} onChange={e => handlePersonChange(person.id, 'name', e.target.value)} />
                 {order.orderType === 'multiple' && order.persons.length > 1 && (

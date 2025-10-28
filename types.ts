@@ -23,3 +23,10 @@ export interface OrderItem {
   persons: Person[];
   reason: string;
 }
+
+export type Theme = 'dark-default' | 'dark-phoenix' | 'light-arctic' | 'light-solar';
+
+export interface AutocompletePreset {
+    id: string;
+    text: string;
+}

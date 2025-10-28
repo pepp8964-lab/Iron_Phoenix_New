@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html lang="uk" data-theme="dark-phoenix">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,6 +8,54 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* Themes */
+      :root {
+        --color-primary: 0 0 0;
+        --color-secondary: 28 28 28;
+        --color-accent: 61 61 61;
+        --color-text-primary: 255 255 255;
+        --color-text-secondary: 176 176 176;
+        --color-brand: 239 68 68;
+        --color-border: 61 61 61;
+      }
+      [data-theme="dark-default"] {
+        --color-primary: 10 10 10;
+        --color-secondary: 28 28 28;
+        --color-accent: 50 50 50;
+        --color-text-primary: 229 231 235;
+        --color-text-secondary: 156 163 175;
+        --color-brand: 59 130 246; /* Blue */
+        --color-border: 50 50 50;
+      }
+      [data-theme="dark-phoenix"] {
+        --color-primary: 10 10 10;
+        --color-secondary: 20 20 20;
+        --color-accent: 40 40 40;
+        --color-text-primary: 255 255 255;
+        --color-text-secondary: 176 176 176;
+        --color-brand: 239 68 68; /* Red */
+        --color-border: 40 40 40;
+      }
+      [data-theme="light-arctic"] {
+        --color-primary: 249 250 251; /* gray-50 */
+        --color-secondary: 255 255 255;
+        --color-accent: 229 231 235; /* gray-200 */
+        --color-text-primary: 17 24 39; /* gray-900 */
+        --color-text-secondary: 75 85 99; /* gray-600 */
+        --color-brand: 37 99 235; /* blue-700 */
+        --color-border: 209 213 219; /* gray-300 */
+      }
+      [data-theme="light-solar"] {
+        --color-primary: 254 252 232; /* yellow-50 */
+        --color-secondary: 255 251 235; /* yellow-100 */
+        --color-accent: 254 226 226; /* red-200 */
+        --color-text-primary: 120 53 15; /* amber-950 */
+        --color-text-secondary: 180 83 9; /* amber-700 */
+        --color-brand: 217 70 239; /* fuchsia-500 */
+        --color-border: 252 165 165; /* red-400 */
+      }
+    </style>
     <script>
       tailwind.config = {
         theme: {
@@ -16,22 +64,34 @@
               sans: ['Inter', 'sans-serif'],
             },
             colors: {
-              'primary': '#0A0A0A',      // Near Black
-              'secondary': '#1C1C1C',    // Dark Gray (for cards)
-              'accent': '#3D3D3D',      // Mid-Gray (for borders)
-              'highlight': '#FFFFFF',    // White (for titles)
-              'text-primary': '#FFFFFF', // White
-              'text-secondary': '#B0B0B0',// Dimmed White (for helpers)
-              'brand': '#EF4444',       // Bright Red (Red-500)
-              'white': '#FFFFFF',
-              'black': '#000000',
+              primary: 'rgb(var(--color-primary) / <alpha-value>)',
+              secondary: 'rgb(var(--color-secondary) / <alpha-value>)',
+              accent: 'rgb(var(--color-accent) / <alpha-value>)',
+              'text-primary': 'rgb(var(--color-text-primary) / <alpha-value>)',
+              'text-secondary': 'rgb(var(--color-text-secondary) / <alpha-value>)',
+              brand: 'rgb(var(--color-brand) / <alpha-value>)',
+              border: 'rgb(var(--color-border) / <alpha-value>)',
             },
             boxShadow: {
-              'glow-brand': '0 0 15px 0px rgba(239, 68, 68, 0.6)',
+              'glow-brand': '0 0 15px 0px rgb(var(--color-brand) / 0.6)',
               'glow-white-subtle': '0 0 25px -5px rgba(255, 255, 255, 0.04)',
             },
             textShadow: {
               'glow-white': '0 0 10px rgba(255, 255, 255, 0.5)',
+            },
+            keyframes: {
+              'fade-in': {
+                  '0%': { opacity: '0' },
+                  '100%': { opacity: '1' },
+              },
+              'slide-up': {
+                  '0%': { transform: 'translateY(20px)', opacity: '0' },
+                  '100%': { transform: 'translateY(0)', opacity: '1' },
+              },
+            },
+            animation: {
+                'fade-in': 'fade-in 0.2s ease-out',
+                'slide-up': 'slide-up 0.3s ease-out',
             },
           },
         },
