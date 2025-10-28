@@ -1,13 +1,13 @@
 import React from 'react';
 import { OrderItem, Person, DisciplinaryAction } from '../types';
-import { DISCIPLINARY_ACTIONS, UI_LABELS } from '../constants';
+import { DISCIPLINARY_ACTIONS } from '../constants';
 import { getTodaysDate } from '../utils';
 import { Input } from './ui/Input';
 import { Select } from './ui/Select';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { TrashIcon, PlusIcon, CalendarDaysIcon } from './icons';
-import { AutocompleteTextarea } from '../App';
+import { AutocompleteInput, AutocompleteTextarea } from './ui/Autocomplete';
 
 interface OrderFormProps {
   order: OrderItem;
@@ -64,7 +64,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ order, onUpdate }) => {
       </div>
 
       <Fieldset legend="Інформація про рапорт(и)">
-        <Input 
+        <AutocompleteInput 
           label="Посада автора рапорту (в родовому відмінку)" 
           placeholder="начальника штабу – заступника начальника..." 
           value={order.reportAuthorPosition} 
@@ -106,13 +106,12 @@ export const OrderForm: React.FC<OrderFormProps> = ({ order, onUpdate }) => {
           helperText="Декілька статей вказуйте через кому або пробіл"
         />
         <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-text-secondary mb-1.5">Причина стягнення</label>
-          <textarea
+           <AutocompleteTextarea
+              label="Причина стягнення"
               value={order.reason}
               onChange={e => handleFieldChange('reason', e.target.value)}
               placeholder={order.orderType === 'single' ? 'напр. неналежно виконував свої службові обов’язки...' : 'напр. 04.08.2025 року несвоєчасно приступили до проведення занять...'}
               rows={3}
-              className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-text-primary placeholder-accent focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand transition-colors duration-200"
           />
           <p className="text-xs text-accent mt-1.5">
               {order.orderType === 'single' ? "Буде вставлено після '..., який ...'" : "Буде вставлено після '..., які ...'"}
@@ -124,16 +123,15 @@ export const OrderForm: React.FC<OrderFormProps> = ({ order, onUpdate }) => {
         <div className="md:col-span-2 flex flex-col gap-3">
           {order.persons.map((person) => (
             <div key={person.id} className="grid grid-cols-1 md:grid-cols-8 gap-x-4 gap-y-2 p-3 border border-border/30 rounded-lg bg-primary/50">
-                <div className="md:col-span-4">
-                  <AutocompleteTextarea 
+                <AutocompleteTextarea 
+                      containerClassName="md:col-span-4"
                       label="Посада (в родовому)" 
                       placeholder="інструктора відділення..." 
                       value={person.position} 
                       onChange={e => handlePersonChange(person.id, 'position', e.target.value)}
                       rows={4}
                   />
-                </div>
-                <Input containerClassName="md:col-span-1" label="Звання" placeholder="капітана" value={person.rank} onChange={e => handlePersonChange(person.id, 'rank', e.target.value)} />
+                <AutocompleteInput containerClassName="md:col-span-1" label="Звання" placeholder="капітана" value={person.rank} onChange={e => handlePersonChange(person.id, 'rank', e.target.value)} />
                 <Input containerClassName="md:col-span-2" label="Прізвище І. П." placeholder="ЄЛІСЄЄВ Євген Іванович" value={person.name} onChange={e => handlePersonChange(person.id, 'name', e.target.value)} />
                 {order.orderType === 'multiple' && order.persons.length > 1 && (
                     <div className="flex items-end md:col-span-1">

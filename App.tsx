@@ -1,6 +1,4 @@
-
-
-import React, { useState, useMemo, useCallback, useEffect, createContext, useContext, KeyboardEvent, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, createContext, useContext } from 'react';
 import { OrderItem, Person, DisciplinaryAction, Theme, AutocompletePreset } from './types';
 import { DISCIPLINARY_ACTIONS, UI_LABELS } from './constants';
 import { formatName, getReportPlural, getStatutePlural } from './utils';
@@ -8,8 +6,8 @@ import { OrderForm } from './components/OrderForm';
 import { GeneratedOutput } from './components/GeneratedOutput';
 import { Button } from './components/ui/Button';
 import { Input } from './components/ui/Input';
-import { Select } from './components/ui/Select';
 import { Modal } from './components/ui/Card';
+import { AutocompleteInput } from './components/ui/Autocomplete';
 import { PlusIcon, DocumentTextIcon, PhoenixIcon, LockClosedIcon, ArrowUturnLeftIcon, Cog6ToothIcon, CircleStackIcon, TrashIcon, ArrowLeftIcon, ArrowRightIcon } from './components/icons';
 
 // LocalStorage Hook
@@ -76,7 +74,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </DataContext.Provider>
   );
 };
-const useData = () => {
+export const useData = () => {
   const context = useContext(DataContext);
   if (!context) throw new Error('useData must be used within a DataProvider');
   return context;
@@ -173,64 +171,6 @@ const SettingsModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isO
     );
 };
 
-export const AutocompleteTextarea: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string }> = ({ label, value, ...props }) => {
-  const { autocompletePresets } = useData();
-  const [suggestion, setSuggestion] = useState('');
-
-  useEffect(() => {
-    const stringValue = String(value || '');
-    // Якщо рядок порожній або закінчується роздільником, слово для завершення відсутнє.
-    if (!stringValue.trim() || /[\s,;:]$/.test(stringValue)) {
-      setSuggestion('');
-      return;
-    }
-
-    // Розділяємо за поширеними роздільниками і беремо останню частину як слово, що вводиться.
-    const parts = stringValue.split(/[\s,;:]+/);
-    const lastPart = parts.pop() || '';
-
-    if (!lastPart) {
-      setSuggestion('');
-      return;
-    }
-
-    const foundPreset = autocompletePresets.find(p => 
-      p.text.toLowerCase().startsWith(lastPart.toLowerCase()) && 
-      p.text.toLowerCase() !== lastPart.toLowerCase()
-    );
-    
-    if (foundPreset) {
-      const suggestionText = foundPreset.text.substring(lastPart.length);
-      setSuggestion(suggestionText);
-    } else {
-      setSuggestion('');
-    }
-  }, [value, autocompletePresets]);
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Tab' && suggestion) {
-      e.preventDefault();
-      // @ts-ignore
-      props.onChange?.({ target: { value: String(value || '') + suggestion } });
-    }
-  };
-
-  return (
-    <div>
-      <label className="block text-sm font-medium text-text-secondary mb-1.5">{label}</label>
-      <div className="relative">
-        <textarea {...props} value={value} onKeyDown={handleKeyDown} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-text-primary placeholder-accent focus:outline-none focus:ring-2 focus:ring-brand caret-text-primary transition-colors duration-200" />
-        {suggestion && (
-          <div className="absolute inset-0 px-3 py-2 pointer-events-none overflow-hidden" style={{fontFamily: 'inherit', fontSize: 'inherit', lineHeight: 'inherit'}}>
-            <span className="invisible whitespace-pre-wrap">{value}</span>
-            <span className="text-brand opacity-80 whitespace-pre-wrap animate-pulse">{suggestion}</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
 const DataManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const { autocompletePresets, setAutocompletePresets } = useData();
 
@@ -251,7 +191,7 @@ const DataManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <div className="space-y-3">
                         {autocompletePresets.map(preset => (
                             <div key={preset.id} className="flex gap-2">
-                                <Input value={preset.text} onChange={e => updatePreset(preset.id, e.target.value)} label="" placeholder="напр. навчального взводу..." />
+                                <AutocompleteInput value={preset.text} onChange={e => updatePreset(preset.id, e.target.value)} label="" placeholder="напр. навчального взводу..." />
                                 <Button onClick={() => removePreset(preset.id)} variant="danger" className="shrink-0"><TrashIcon className="w-5 h-5"/></Button>
                             </div>
                         ))}
@@ -275,29 +215,38 @@ const createNewOrderItem = (): OrderItem => ({
   reason: '',
 });
 
-const OrderGenerator = ({ onBack, onManageData }: { onBack: () => void, onManageData: () => void }) => {
-  const [orders, setOrders] = useState<OrderItem[]>([createNewOrderItem()]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+interface OrderGeneratorProps {
+    orders: OrderItem[];
+    setOrders: React.Dispatch<React.SetStateAction<OrderItem[]>>;
+    currentIndex: number;
+    setCurrentIndex: React.Dispatch<React.SetStateAction<number>>;
+    onBack: () => void;
+    onManageData: () => void;
+}
+
+const OrderGenerator: React.FC<OrderGeneratorProps> = ({ orders, setOrders, currentIndex, setCurrentIndex, onBack, onManageData }) => {
   const [isSettingsOpen, setSettingsOpen] = useState(false);
 
   const currentOrder = orders[currentIndex];
 
   const updateOrder = useCallback((updatedOrder: OrderItem) => {
     setOrders(prev => prev.map((o, i) => i === currentIndex ? updatedOrder : o));
-  }, [currentIndex]);
+  }, [currentIndex, setOrders]);
 
   const goToNext = () => setCurrentIndex(i => Math.min(i + 1, orders.length - 1));
   const goToPrev = () => setCurrentIndex(i => Math.max(i - 1, 0));
   
   const addOrder = () => {
-    setOrders(prev => [...prev, createNewOrderItem()]);
+    const newOrder = createNewOrderItem();
+    setOrders(prev => [...prev, newOrder]);
     setCurrentIndex(orders.length);
   };
 
   const removeCurrentOrder = () => {
     if (orders.length <= 1) return;
-    setOrders(prev => prev.filter((_, i) => i !== currentIndex));
-    setCurrentIndex(prev => Math.max(0, Math.min(prev, orders.length - 2)));
+    const newOrders = orders.filter((_, i) => i !== currentIndex);
+    setOrders(newOrders);
+    setCurrentIndex(prev => Math.max(0, Math.min(prev, newOrders.length - 1)));
   };
 
   const generateTextForItem = useCallback((item: OrderItem): string => {
@@ -362,9 +311,20 @@ const OrderGenerator = ({ onBack, onManageData }: { onBack: () => void, onManage
 
 const App: React.FC = () => {
     const [view, setView] = useState<'home' | 'orderGenerator' | 'dataManagement'>('home');
+    
+    // Lifted state for OrderGenerator
+    const [orders, setOrders] = useState<OrderItem[]>([createNewOrderItem()]);
+    const [currentIndex, setCurrentIndex] = useState(0);
 
     if (view === 'orderGenerator') {
-        return <OrderGenerator onBack={() => setView('home')} onManageData={() => setView('dataManagement')} />;
+        return <OrderGenerator 
+            orders={orders}
+            setOrders={setOrders}
+            currentIndex={currentIndex}
+            setCurrentIndex={setCurrentIndex}
+            onBack={() => setView('home')} 
+            onManageData={() => setView('dataManagement')} 
+        />;
     }
     
     if (view === 'dataManagement') {
