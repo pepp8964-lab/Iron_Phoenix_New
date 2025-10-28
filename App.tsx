@@ -259,15 +259,17 @@ const OrderGenerator: React.FC<OrderGeneratorProps> = ({ orders, setOrders, curr
 
     if (item.orderType === 'single') {
         const person = item.persons[0] || { position: '', rank: '', name: '' };
-        return `${baseIntro} ${person.position} ${person.rank} ${formatName(person.name)}, який ${item.reason}, притягнути до дисциплінарної відповідальності та накласти дисциплінарне стягнення «${actionName}»`;
+        const personDetails = `${person.position} ${person.rank} ${formatName(person.name)}`;
+        const reasonClause = item.reason ? `, який ${item.reason},` : `,`;
+        return `${baseIntro} ${personDetails}${reasonClause} притягнути до дисциплінарної відповідальності та накласти дисциплінарне стягнення «${actionName}»`;
     } else {
         const personsList = item.persons.map(p => `\t${p.position} ${p.rank} ${formatName(p.name)};`).join('\n');
-        const reasonClause = `\tякі ${item.reason}`;
-        return `${baseIntro} притягнути до дисциплінарної відповідальності та накласти дисциплінарне стягнення «${actionName}»:\n${personsList}\n${reasonClause}`;
+        const reasonClause = item.reason ? `\n\t, які ${item.reason}` : '';
+        return `${baseIntro} притягнути до дисциплінарної відповідальності та накласти дисциплінарне стягнення «${actionName}»:\n${personsList}${reasonClause}`;
     }
   }, []);
 
-  const generatedText = useMemo(() => orders.map(generateTextForItem).join('\n\n'), [orders, generateTextForItem]);
+  const generatedText = useMemo(() => orders.map(generateTextForItem).join('\n\n\n'), [orders, generateTextForItem]);
   const handleCopyItem = useCallback((index: number) => navigator.clipboard.writeText(generateTextForItem(orders[index])), [orders, generateTextForItem]);
 
   return (
