@@ -112,7 +112,6 @@ export const OrderForm: React.FC<OrderFormProps> = ({ order, onUpdate, theme }) 
           value={order.reportAuthorPosition} 
           onChange={e => handleFieldChange('reportAuthorPosition', e.target.value)} 
           containerClassName="md:col-span-2"
-          field="reportAuthorPosition"
           theme={theme}
         />
         <Input 
@@ -156,7 +155,6 @@ export const OrderForm: React.FC<OrderFormProps> = ({ order, onUpdate, theme }) 
               onChange={e => handleFieldChange('reason', e.target.value)}
               placeholder={order.orderType === 'single' ? 'напр. неналежно виконував свої службові обов’язки...' : 'напр. 04.08.2025 року несвоєчасно приступили до проведення занять...'}
               rows={3}
-              field="reason"
               theme={theme}
           />
           <p className="text-xs text-accent mt-1.5">
@@ -176,11 +174,10 @@ export const OrderForm: React.FC<OrderFormProps> = ({ order, onUpdate, theme }) 
                       value={person.position} 
                       onChange={e => handlePersonChange(person.id, 'position', e.target.value)}
                       rows={4}
-                      field="position"
                       theme={theme}
                   />
-                <AutocompleteInput containerClassName="md:col-span-1" label="Звання" placeholder="капітана" value={person.rank} onChange={e => handlePersonChange(person.id, 'rank', e.target.value)} field="rank" theme={theme} />
-                <AutocompleteInput containerClassName="md:col-span-2" label="Прізвище І. П." placeholder="ЄЛІСЄЄВ Євген Іванович" value={person.name} onChange={e => handlePersonChange(person.id, 'name', e.target.value)} field="name" theme={theme} />
+                <AutocompleteInput containerClassName="md:col-span-1" label="Звання" placeholder="капітана" value={person.rank} onChange={e => handlePersonChange(person.id, 'rank', e.target.value)} theme={theme} />
+                <AutocompleteInput containerClassName="md:col-span-2" label="Прізвище І. П." placeholder="ЄЛІСЄЄВ Євген Іванович" value={person.name} onChange={e => handlePersonChange(person.id, 'name', e.target.value)} theme={theme} />
                 {order.orderType === 'multiple' && order.persons.length > 1 && (
                     <div className="flex items-end md:col-span-1">
                         <Button onClick={() => removePerson(person.id)} variant="danger" className="w-full h-[42px]"><TrashIcon className="w-5 h-5"/></Button>

@@ -2,16 +2,14 @@ import React, { useState, useEffect, KeyboardEvent, useMemo, useRef } from 'reac
 import { useData } from '../../App';
 import { Person, OrderItem, Theme } from '../../types';
 
-type AutocompleteField = 'reportAuthorPosition' | 'reason' | keyof Person;
-
 interface Suggestion {
-    text: string;
+    text: string; // This will now hold the full completed string
     type: 'phrase' | 'word';
+    originalWord?: string; // For words, what was the original suggestion before rebuilding the full text
 }
 
 const useAutocomplete = (
     value: string,
-    field: AutocompleteField,
     onChange: (newValue: string) => void
 ) => {
     const { autocompletePresets, orders } = useData();
@@ -73,17 +71,18 @@ const useAutocomplete = (
             .filter(suggestion =>
                 suggestion.toLowerCase().startsWith(currentWord) &&
                 suggestion.toLowerCase() !== currentWord
-            ).map(text => ({ text, type: 'word' }));
+            ).map(text => ({ text: text, type: 'word', originalWord: text })); // Keep original word
         
         const combined = [...phraseMatches, ...wordMatches];
         
+        // Rebuild the full text for display, but keep the original suggestion
         const uniqueSuggestions = Array.from(new Map(combined.map(s => [s.text.toLowerCase(), s])).values())
             .map(s => ({ ...s, text: s.type === 'phrase' ? s.text : (parts.slice(0, -1).join(' ') + ' ' + s.text).trim() }));
 
 
         const sortedSuggestions = uniqueSuggestions.sort((a, b) => {
-            if (a.type === 'phrase' && b.type === 'word') return -1;
-            if (a.type === 'word' && b.type === 'phrase') return 1;
+            if (a.type === 'word' && b.type === 'phrase') return -1;
+            if (a.type === 'phrase' && b.type === 'word') return 1;
             return a.text.length - b.text.length;
         });
         
@@ -99,15 +98,9 @@ const useAutocomplete = (
 
 
     const applySuggestion = (suggestion: Suggestion, addSpace: boolean) => {
-        if (suggestion.type === 'phrase') {
-            onChange(suggestion.text + (addSpace ? ' ' : ''));
-        } else { // type === 'word'
-            const stringValue = String(value || '');
-            const parts = stringValue.split(/\s+/);
-            const prefix = parts.slice(0, -1).join(' ');
-            const newValue = (prefix ? prefix + ' ' : '') + suggestion.text + (addSpace ? ' ' : '');
-            onChange(newValue);
-        }
+        // The `suggestion.text` already contains the full, corrected string for both phrases and words.
+        // We can simply apply it directly.
+        onChange(suggestion.text + (addSpace ? ' ' : ''));
         setShowSuggestions(false);
     };
 
@@ -203,7 +196,6 @@ type AutocompleteProps = {
   label: string;
   value: string;
   containerClassName?: string;
-  field: AutocompleteField;
   theme: Theme;
 };
 
@@ -212,7 +204,7 @@ type AutocompleteTextareaProps = AutocompleteProps & Omit<React.TextareaHTMLAttr
     onChange: React.ChangeEventHandler<HTMLTextAreaElement>;
 };
 
-export const AutocompleteTextarea: React.FC<AutocompleteTextareaProps> = ({ label, value, containerClassName, field, theme, onChange: originalOnChange, ...props }) => {
+export const AutocompleteTextarea: React.FC<AutocompleteTextareaProps> = ({ label, value, containerClassName, theme, onChange: originalOnChange, ...props }) => {
     const handleChange = (newValue: string) => {
         if (originalOnChange) {
             const event = { target: { value: newValue } } as React.ChangeEvent<HTMLTextAreaElement>;
@@ -220,7 +212,7 @@ export const AutocompleteTextarea: React.FC<AutocompleteTextareaProps> = ({ labe
         }
     };
     
-    const { suggestions, showSuggestions, activeSuggestionIndex, handleKeyDown, handleSuggestionClick, setShowSuggestions } = useAutocomplete(value, field, handleChange);
+    const { suggestions, showSuggestions, activeSuggestionIndex, handleKeyDown, handleSuggestionClick, setShowSuggestions } = useAutocomplete(value, handleChange);
 
     return (
         <div className={`w-full ${containerClassName}`}>
@@ -247,7 +239,7 @@ type AutocompleteInputProps = AutocompleteProps & Omit<React.InputHTMLAttributes
     onChange: React.ChangeEventHandler<HTMLInputElement>;
 };
 
-export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({ label, value, containerClassName, field, theme, onChange: originalOnChange, ...props }) => {
+export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({ label, value, containerClassName, theme, onChange: originalOnChange, ...props }) => {
     const handleChange = (newValue: string) => {
         if (originalOnChange) {
             const event = { target: { value: newValue } } as React.ChangeEvent<HTMLInputElement>;
@@ -255,7 +247,7 @@ export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({ label, val
         }
     };
 
-    const { suggestions, showSuggestions, activeSuggestionIndex, handleKeyDown, handleSuggestionClick, setShowSuggestions } = useAutocomplete(value as string, field, handleChange);
+    const { suggestions, showSuggestions, activeSuggestionIndex, handleKeyDown, handleSuggestionClick, setShowSuggestions } = useAutocomplete(value as string, handleChange);
 
     return (
         <div className={`w-full ${containerClassName}`}>

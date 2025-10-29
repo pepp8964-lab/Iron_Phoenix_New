@@ -30,3 +30,8 @@ export interface AutocompletePreset {
     id: string;
     text: string;
 }
+
+export interface DriveData {
+    orders: OrderItem[];
+    autocompletePresets: AutocompletePreset[];
+}

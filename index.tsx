@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App, { ThemeProvider, DataProvider } from './App';
+import App, { ThemeProvider, DataProvider, GithubGistProvider } from './App';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -12,7 +12,9 @@ root.render(
   <React.StrictMode>
     <ThemeProvider>
       <DataProvider>
-        <App />
+        <GithubGistProvider>
+            <App />
+        </GithubGistProvider>
       </DataProvider>
     </ThemeProvider>
   </React.StrictMode>

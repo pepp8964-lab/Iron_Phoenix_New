@@ -1,13 +1,14 @@
-import React, { useState, useMemo, useCallback, useEffect, createContext, useContext } from 'react';
-import { OrderItem, Person, DisciplinaryAction, Theme, AutocompletePreset } from './types';
+import React, { useState, useMemo, useCallback, useEffect, createContext, useContext, useRef } from 'react';
+import { OrderItem, Person, DisciplinaryAction, Theme, AutocompletePreset, DriveData } from './types';
 import { DISCIPLINARY_ACTIONS, UI_LABELS } from './constants';
 import { formatName, getReportPlural, getStatutePlural, createNewOrderItem } from './utils';
 import { OrderForm } from './components/OrderForm';
 import { GeneratedOutput } from './components/GeneratedOutput';
 import { Button } from './components/ui/Button';
 import { Modal } from './components/ui/Card';
+import { Input } from './components/ui/Input';
 import { AutocompleteInput } from './components/ui/Autocomplete';
-import { PlusIcon, DocumentTextIcon, PhoenixIcon, LockClosedIcon, ArrowUturnLeftIcon, Cog6ToothIcon, CircleStackIcon, TrashIcon, ArrowLeftIcon, ArrowRightIcon, ArrowsUpDownIcon } from './components/icons';
+import { PlusIcon, DocumentTextIcon, PhoenixIcon, LockClosedIcon, ArrowUturnLeftIcon, Cog6ToothIcon, CircleStackIcon, TrashIcon, ArrowLeftIcon, ArrowRightIcon, ArrowsUpDownIcon, CloudArrowUpIcon, CloudArrowDownIcon, ArrowPathIcon, GithubIcon } from './components/icons';
 
 // LocalStorage Hook
 function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
@@ -82,6 +83,117 @@ export const useData = () => {
   return context;
 };
 
+// --- Cloud Sync: GitHub Gist ---
+const GIST_FILENAME = 'iron-phoenix-data.json';
+
+interface GistConfig {
+  gistId: string;
+  githubToken: string;
+}
+
+interface GithubGistContextType {
+  isConnected: boolean;
+  connect: (gistId: string, token: string) => void;
+  disconnect: () => void;
+  saveDataToGist: (data: DriveData) => Promise<void>;
+  loadDataFromGist: () => Promise<void>;
+  status: string;
+  lastSync: Date | null;
+  config: GistConfig;
+}
+
+const GithubGistContext = createContext<GithubGistContextType | undefined>(undefined);
+
+export const GithubGistProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const [config, setConfig] = useLocalStorage<GistConfig>('gist-config', { gistId: '', githubToken: '' });
+    const [status, setStatus] = useState('Не підключено');
+    const [lastSync, setLastSync] = useState<Date | null>(null);
+    const { setOrders, setAutocompletePresets } = useData();
+  
+    const isConnected = useMemo(() => !!config.gistId && !!config.githubToken, [config]);
+  
+    const connect = (gistId: string, token: string) => {
+      setConfig({ gistId, githubToken: token });
+      setStatus('Підключено');
+    };
+  
+    const disconnect = () => {
+      setConfig({ gistId: '', githubToken: '' });
+      setStatus('Не підключено');
+      setLastSync(null);
+    };
+
+    const makeGistRequest = async (method: 'GET' | 'PATCH', body?: object) => {
+        const url = `https://api.github.com/gists/${config.gistId}`;
+        const headers: HeadersInit = {
+            'Accept': 'application/vnd.github.v3+json',
+            'Authorization': `token ${config.githubToken}`
+        };
+        const options: RequestInit = { method, headers };
+        if (body) {
+            options.body = JSON.stringify(body);
+        }
+        const response = await fetch(url, options);
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`Помилка GitHub API: ${response.status} - ${errorData.message || 'Unknown error'}`);
+        }
+        return response.json();
+    }
+  
+    const saveDataToGist = useCallback(async (data: DriveData) => {
+      if (!isConnected) return;
+      setStatus('Синхронізація...');
+      try {
+        const body = {
+          files: {
+            [GIST_FILENAME]: {
+              content: JSON.stringify(data, null, 2),
+            },
+          },
+        };
+        await makeGistRequest('PATCH', body);
+        setStatus('Синхронізовано');
+        setLastSync(new Date());
+      } catch (e: any) {
+        console.error("Error saving data to Gist:", e);
+        setStatus(`Помилка збереження: ${e.message}`);
+      }
+    }, [isConnected, config]);
+  
+    const loadDataFromGist = useCallback(async () => {
+      if (!isConnected) return;
+      setStatus('Завантаження з хмари...');
+      try {
+        const gistData = await makeGistRequest('GET');
+        const file = gistData.files?.[GIST_FILENAME];
+        if (!file) {
+            setStatus('Файл не знайдено у Gist. Збережіть, щоб створити.');
+            return;
+        }
+        const data: DriveData = JSON.parse(file.content);
+        if (data.orders) setOrders(data.orders);
+        if (data.autocompletePresets) setAutocompletePresets(data.autocompletePresets);
+        setStatus('Дані успішно завантажено.');
+        setLastSync(new Date());
+      } catch (e: any) {
+        console.error("Error loading data from Gist:", e);
+        setStatus(`Помилка завантаження: ${e.message}`);
+      }
+    }, [isConnected, config, setOrders, setAutocompletePresets]);
+    
+    const value = { isConnected, connect, disconnect, saveDataToGist, loadDataFromGist, status, lastSync, config };
+  
+    return <GithubGistContext.Provider value={value}>{children}</GithubGistContext.Provider>;
+};
+  
+const useGithubGist = () => {
+    const context = useContext(GithubGistContext);
+    if (!context) throw new Error('useGithubGist must be used within a GithubGistProvider');
+    return context;
+};
+
+
 // --- Sub-components ---
 
 const HomePage = ({ onStartGenerator }: { onStartGenerator: () => void }) => {
@@ -144,30 +256,72 @@ const HomePage = ({ onStartGenerator }: { onStartGenerator: () => void }) => {
 
 const SettingsModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOpen, onClose }) => {
     const { theme, setTheme } = useTheme();
+    const { orders, autocompletePresets } = useData();
+    const { isConnected, connect, disconnect, status, lastSync, loadDataFromGist, saveDataToGist, config } = useGithubGist();
+    
+    const [localGistId, setLocalGistId] = useState(config.gistId);
+    const [localToken, setLocalToken] = useState(config.githubToken);
+
     const themes: { id: Theme; name: string; colors: string[] }[] = [
         { id: 'dark-phoenix', name: 'Темний Фенікс', colors: ['#0A0A0A', '#EF4444'] },
         { id: 'dark-default', name: 'Темний Океан', colors: ['#0A0A0A', '#3B82F6'] },
         { id: 'light-arctic', name: 'Світлий Арктичний', colors: ['#F9FAFB', '#2563EB'] },
         { id: 'light-solar', name: 'Світлий Сонячний', colors: ['#FEFCF0', '#D946EF'] },
     ];
+    
+    const isSaving = status === 'Синхронізація...';
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Налаштування">
-          <div className="space-y-4">
-            <h3 className="text-md font-medium text-text-primary">Тема оформлення</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {themes.map(t => (
-                <div key={t.id} onClick={() => setTheme(t.id)} className={`p-3 border rounded-lg cursor-pointer transition-all ${theme === t.id ? 'border-brand ring-2 ring-brand' : 'border-border hover:border-text-secondary'}`}>
-                  <div className="flex items-center gap-3">
-                    <div className="flex -space-x-1.5 border-2 border-secondary rounded-full">
-                      <div className="w-5 h-5 rounded-full" style={{ backgroundColor: t.colors[0] }}></div>
-                      <div className="w-5 h-5 rounded-full" style={{ backgroundColor: t.colors[1] }}></div>
+          <div className="space-y-6">
+            <fieldset className="border border-border/50 rounded-lg p-4">
+              <legend className="px-2 text-sm font-semibold text-brand">Тема оформлення</legend>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {themes.map(t => (
+                  <div key={t.id} onClick={() => setTheme(t.id)} className={`p-3 border rounded-lg cursor-pointer transition-all ${theme === t.id ? 'border-brand ring-2 ring-brand' : 'border-border hover:border-text-secondary'}`}>
+                    <div className="flex items-center gap-3">
+                      <div className="flex -space-x-1.5 border-2 border-secondary rounded-full">
+                        <div className="w-5 h-5 rounded-full" style={{ backgroundColor: t.colors[0] }}></div>
+                        <div className="w-5 h-5 rounded-full" style={{ backgroundColor: t.colors[1] }}></div>
+                      </div>
+                      <span className="text-sm font-medium text-text-primary">{t.name}</span>
                     </div>
-                    <span className="text-sm font-medium text-text-primary">{t.name}</span>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="border border-border/50 rounded-lg p-4">
+                <legend className="px-2 text-sm font-semibold text-brand">Хмарна синхронізація (GitHub Gist)</legend>
+                {!isConnected ? (
+                     <div className="space-y-4">
+                        <p className="text-xs text-text-secondary">Зберігайте дані у безкоштовному, секретному Gist на GitHub.</p>
+                         <Input label="Gist ID" value={localGistId} onChange={e => setLocalGistId(e.target.value)} placeholder="ID вашого Gist" />
+                         <Input label="Personal Access Token" type="password" value={localToken} onChange={e => setLocalToken(e.target.value)} placeholder="Токен з доступом до gist" />
+                         <div className="text-xs text-text-secondary space-y-1">
+                             <p>1. <a href="https://gist.github.com/" target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">Створіть секретний Gist</a> та скопіюйте ID з URL.</p>
+                             <p>2. <a href="https://github.com/settings/tokens/new?scopes=gist&description=Iron%20Phoenix%20Sync" target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">Створіть токен</a> з дозволом `gist`.</p>
+                         </div>
+                         <Button onClick={() => connect(localGistId, localToken)} disabled={!localGistId || !localToken}>
+                             <GithubIcon className="w-5 h-5 mr-2" /> Підключити
+                         </Button>
+                     </div>
+                ) : (
+                    <div className="space-y-3">
+                        <p className="text-sm text-text-secondary break-all">Gist ID: <span className="font-mono">{config.gistId}</span></p>
+                        <div className="flex items-center gap-2 text-sm text-text-secondary">
+                             <ArrowPathIcon className={`w-4 h-4 ${isSaving ? 'animate-spin-slow' : ''}`} />
+                             <span>{status}</span>
+                             {lastSync && !isSaving && <span>({lastSync.toLocaleTimeString()})</span>}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <Button onClick={() => loadDataFromGist()}><CloudArrowDownIcon className="w-5 h-5 mr-2" />Завантажити</Button>
+                            <Button onClick={() => saveDataToGist({ orders, autocompletePresets })}><CloudArrowUpIcon className="w-5 h-5 mr-2" />Зберегти зараз</Button>
+                            <Button onClick={disconnect} variant="danger">Відключити</Button>
+                        </div>
+                    </div>
+                )}
+            </fieldset>
           </div>
         </Modal>
     );
@@ -194,7 +348,7 @@ const DataManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <div className="space-y-3">
                         {autocompletePresets.map(preset => (
                             <div key={preset.id} className="flex gap-2">
-                                <AutocompleteInput value={preset.text} onChange={e => updatePreset(preset.id, e.target.value)} label="" placeholder="напр. навчального взводу..." field="position" theme={theme} />
+                                <AutocompleteInput value={preset.text} onChange={e => updatePreset(preset.id, e.target.value)} label="" placeholder="напр. навчального взводу..." theme={theme} />
                                 <Button onClick={() => removePreset(preset.id)} variant="danger" className="shrink-0"><TrashIcon className="w-5 h-5"/></Button>
                             </div>
                         ))}
@@ -214,15 +368,36 @@ interface OrderGeneratorProps {
 }
 
 const OrderGenerator: React.FC<OrderGeneratorProps> = ({ currentIndex, setCurrentIndex, onBack, onManageData }) => {
-  const { orders, setOrders } = useData();
+  const { orders, setOrders, autocompletePresets } = useData();
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const { theme } = useTheme();
-
+  
+  const { saveDataToGist, isConnected } = useGithubGist();
+  const autosaveTimeoutRef = useRef<number | null>(null);
+  
   const currentOrder = orders[currentIndex];
 
   const updateOrder = useCallback((updatedOrder: OrderItem) => {
     setOrders(prev => prev.map((o, i) => i === currentIndex ? updatedOrder : o));
   }, [currentIndex, setOrders]);
+
+  useEffect(() => {
+    if (!isConnected) return;
+
+    if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current);
+    }
+    autosaveTimeoutRef.current = window.setTimeout(() => {
+        saveDataToGist({ orders, autocompletePresets });
+    }, 3000); // 3-second debounce
+
+    return () => {
+        if (autosaveTimeoutRef.current) {
+            clearTimeout(autosaveTimeoutRef.current);
+        }
+    };
+  }, [orders, autocompletePresets, saveDataToGist, isConnected]);
+
 
   const goToNext = () => setCurrentIndex(i => Math.min(i + 1, orders.length - 1));
   const goToPrev = () => setCurrentIndex(i => Math.max(i - 1, 0));
@@ -269,7 +444,8 @@ const OrderGenerator: React.FC<OrderGeneratorProps> = ({ currentIndex, setCurren
     } else {
         const personsList = item.persons.map((p, index) => {
             const personDetails = `\t${p.position} ${p.rank} ${formatName(p.name)}`;
-            const terminator = (item.reason && index === item.persons.length - 1) ? ',' : ';';
+            const isLast = index === item.persons.length - 1;
+            const terminator = (item.reason && isLast) ? ',' : ';';
             return `${personDetails}${terminator}`;
         }).join('\n');
         const reasonClause = item.reason ? `\n\tякі ${item.reason}` : '';
@@ -343,3 +519,6 @@ const App: React.FC = () => {
 };
 
 export default App;
+// Fix: Removed redundant export of GithubGistProvider.
+// The component is already exported at its declaration, and re-exporting it caused a compilation error.
+// export { GithubGistProvider };
