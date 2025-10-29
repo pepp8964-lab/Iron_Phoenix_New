@@ -1,5 +1,5 @@
-import React from 'react';
-import { OrderItem, Person, DisciplinaryAction } from '../types';
+import React, { useRef } from 'react';
+import { OrderItem, Person, DisciplinaryAction, Theme } from '../types';
 import { DISCIPLINARY_ACTIONS } from '../constants';
 import { getTodaysDate } from '../utils';
 import { Input } from './ui/Input';
@@ -13,6 +13,7 @@ interface OrderFormProps {
   order: OrderItem;
   onUpdate: (order: OrderItem) => void;
   isOnlyItem: boolean;
+  theme: Theme;
 }
 
 const Fieldset: React.FC<{ legend: string; children: React.ReactNode }> = ({ legend, children }) => (
@@ -25,8 +26,49 @@ const Fieldset: React.FC<{ legend: string; children: React.ReactNode }> = ({ leg
 );
 
 
-export const OrderForm: React.FC<OrderFormProps> = ({ order, onUpdate }) => {
+export const OrderForm: React.FC<OrderFormProps> = ({ order, onUpdate, theme }) => {
+  const formRef = useRef<HTMLDivElement>(null);
   
+  const handleFormKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    if (!formRef.current) return;
+
+    const target = e.target as HTMLElement;
+    // Do not interfere if user is navigating text inside input/textarea
+    if ((target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') && (target as HTMLInputElement).selectionStart !== (target as HTMLInputElement).selectionEnd) {
+        return;
+    }
+    // Also, allow default behavior for moving cursor at the beginning/end of the text
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        const input = target as HTMLInputElement;
+        if (e.key === 'ArrowLeft' && input.selectionStart !== 0) return;
+        if (e.key === 'ArrowRight' && input.selectionStart !== input.value.length) return;
+    }
+
+
+    const focusable = Array.from(
+        formRef.current.querySelectorAll<HTMLElement>('input, textarea, select, button:not([tabindex="-1"])')
+    ).filter(el => !el.hasAttribute('disabled'));
+
+    const currentIndex = focusable.findIndex(el => el === document.activeElement);
+    if (currentIndex === -1) return;
+
+    e.preventDefault();
+
+    let nextIndex = -1;
+    if (e.key === 'ArrowRight') {
+        nextIndex = (currentIndex + 1);
+        if (nextIndex >= focusable.length) nextIndex = 0; // Wrap around
+    } else if (e.key === 'ArrowLeft') {
+        nextIndex = (currentIndex - 1);
+        if (nextIndex < 0) nextIndex = focusable.length - 1; // Wrap around
+    }
+    
+    if (nextIndex !== -1) {
+        focusable[nextIndex].focus();
+    }
+  };
+
   const handleFieldChange = (field: keyof OrderItem, value: any) => {
     onUpdate({ ...order, [field]: value });
   };
@@ -57,7 +99,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ order, onUpdate }) => {
   }
 
   return (
-    <Card>
+    <Card ref={formRef} onKeyDown={handleFormKeyDown}>
       <div className="bg-primary p-2 rounded-lg inline-flex gap-2 mb-4">
         <Button variant={order.orderType === 'single' ? 'primary' : 'secondary'} onClick={() => setOrderType('single')}>Одна особа</Button>
         <Button variant={order.orderType === 'multiple' ? 'primary' : 'secondary'} onClick={() => setOrderType('multiple')}>Декілька осіб</Button>
@@ -69,7 +111,9 @@ export const OrderForm: React.FC<OrderFormProps> = ({ order, onUpdate }) => {
           placeholder="начальника штабу – заступника начальника..." 
           value={order.reportAuthorPosition} 
           onChange={e => handleFieldChange('reportAuthorPosition', e.target.value)} 
-          containerClassName="md:col-span-2" 
+          containerClassName="md:col-span-2"
+          field="reportAuthorPosition"
+          theme={theme}
         />
         <Input 
           label="Дата рапорту" 
@@ -77,7 +121,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ order, onUpdate }) => {
           value={order.reportDate} 
           onChange={e => handleFieldChange('reportDate', e.target.value)}
           endAdornment={
-            <Button variant="ghost" size="normal" onClick={() => handleFieldChange('reportDate', getTodaysDate())} title="Вставити сьогоднішню дату">
+            <Button variant="ghost" size="normal" onClick={() => handleFieldChange('reportDate', getTodaysDate())} title="Вставити сьогоднішню дату" tabIndex={-1}>
               <CalendarDaysIcon className="w-5 h-5"/>
             </Button>
           }
@@ -112,6 +156,8 @@ export const OrderForm: React.FC<OrderFormProps> = ({ order, onUpdate }) => {
               onChange={e => handleFieldChange('reason', e.target.value)}
               placeholder={order.orderType === 'single' ? 'напр. неналежно виконував свої службові обов’язки...' : 'напр. 04.08.2025 року несвоєчасно приступили до проведення занять...'}
               rows={3}
+              field="reason"
+              theme={theme}
           />
           <p className="text-xs text-accent mt-1.5">
               {order.orderType === 'single' ? "Буде вставлено після '..., який ...'" : "Буде вставлено після '..., які ...'"}
@@ -130,9 +176,11 @@ export const OrderForm: React.FC<OrderFormProps> = ({ order, onUpdate }) => {
                       value={person.position} 
                       onChange={e => handlePersonChange(person.id, 'position', e.target.value)}
                       rows={4}
+                      field="position"
+                      theme={theme}
                   />
-                <AutocompleteInput containerClassName="md:col-span-1" label="Звання" placeholder="капітана" value={person.rank} onChange={e => handlePersonChange(person.id, 'rank', e.target.value)} />
-                <Input containerClassName="md:col-span-2" label="Прізвище І. П." placeholder="ЄЛІСЄЄВ Євген Іванович" value={person.name} onChange={e => handlePersonChange(person.id, 'name', e.target.value)} />
+                <AutocompleteInput containerClassName="md:col-span-1" label="Звання" placeholder="капітана" value={person.rank} onChange={e => handlePersonChange(person.id, 'rank', e.target.value)} field="rank" theme={theme} />
+                <AutocompleteInput containerClassName="md:col-span-2" label="Прізвище І. П." placeholder="ЄЛІСЄЄВ Євген Іванович" value={person.name} onChange={e => handlePersonChange(person.id, 'name', e.target.value)} field="name" theme={theme} />
                 {order.orderType === 'multiple' && order.persons.length > 1 && (
                     <div className="flex items-end md:col-span-1">
                         <Button onClick={() => removePerson(person.id)} variant="danger" className="w-full h-[42px]"><TrashIcon className="w-5 h-5"/></Button>

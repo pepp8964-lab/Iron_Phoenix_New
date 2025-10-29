@@ -1,14 +1,13 @@
 import React, { useState, useMemo, useCallback, useEffect, createContext, useContext } from 'react';
 import { OrderItem, Person, DisciplinaryAction, Theme, AutocompletePreset } from './types';
 import { DISCIPLINARY_ACTIONS, UI_LABELS } from './constants';
-import { formatName, getReportPlural, getStatutePlural } from './utils';
+import { formatName, getReportPlural, getStatutePlural, createNewOrderItem } from './utils';
 import { OrderForm } from './components/OrderForm';
 import { GeneratedOutput } from './components/GeneratedOutput';
 import { Button } from './components/ui/Button';
-import { Input } from './components/ui/Input';
 import { Modal } from './components/ui/Card';
 import { AutocompleteInput } from './components/ui/Autocomplete';
-import { PlusIcon, DocumentTextIcon, PhoenixIcon, LockClosedIcon, ArrowUturnLeftIcon, Cog6ToothIcon, CircleStackIcon, TrashIcon, ArrowLeftIcon, ArrowRightIcon } from './components/icons';
+import { PlusIcon, DocumentTextIcon, PhoenixIcon, LockClosedIcon, ArrowUturnLeftIcon, Cog6ToothIcon, CircleStackIcon, TrashIcon, ArrowLeftIcon, ArrowRightIcon, ArrowsUpDownIcon } from './components/icons';
 
 // LocalStorage Hook
 function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
@@ -62,14 +61,17 @@ const useTheme = () => {
 interface DataContextType {
   autocompletePresets: AutocompletePreset[];
   setAutocompletePresets: (presets: AutocompletePreset[] | ((val: AutocompletePreset[]) => AutocompletePreset[])) => void;
+  orders: OrderItem[];
+  setOrders: (orders: OrderItem[] | ((val: OrderItem[]) => OrderItem[])) => void;
 }
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [autocompletePresets, setAutocompletePresets] = useLocalStorage<AutocompletePreset[]>('autocomplete-presets', []);
+  const [orders, setOrders] = useLocalStorage<OrderItem[]>('order-items', [createNewOrderItem()]);
 
   return (
-    <DataContext.Provider value={{ autocompletePresets, setAutocompletePresets }}>
+    <DataContext.Provider value={{ autocompletePresets, setAutocompletePresets, orders, setOrders }}>
       {children}
     </DataContext.Provider>
   );
@@ -173,6 +175,7 @@ const SettingsModal: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isO
 
 const DataManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const { autocompletePresets, setAutocompletePresets } = useData();
+    const { theme } = useTheme();
 
     const addPreset = () => setAutocompletePresets(prev => [...prev, { id: Date.now().toString(), text: '' }]);
     const updatePreset = (id: string, text: string) => setAutocompletePresets(prev => prev.map(p => p.id === id ? { ...p, text } : p));
@@ -191,7 +194,7 @@ const DataManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <div className="space-y-3">
                         {autocompletePresets.map(preset => (
                             <div key={preset.id} className="flex gap-2">
-                                <AutocompleteInput value={preset.text} onChange={e => updatePreset(preset.id, e.target.value)} label="" placeholder="напр. навчального взводу..." />
+                                <AutocompleteInput value={preset.text} onChange={e => updatePreset(preset.id, e.target.value)} label="" placeholder="напр. навчального взводу..." field="position" theme={theme} />
                                 <Button onClick={() => removePreset(preset.id)} variant="danger" className="shrink-0"><TrashIcon className="w-5 h-5"/></Button>
                             </div>
                         ))}
@@ -203,29 +206,17 @@ const DataManagement: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     );
 };
 
-const createNewOrderItem = (): OrderItem => ({
-  id: Date.now().toString(),
-  orderType: 'single',
-  reportDate: '',
-  reportNumber: '',
-  reportAuthorPosition: '',
-  disciplinaryAction: DisciplinaryAction.REPRIMAND,
-  violatedStatutes: '11',
-  persons: [{ id: Date.now().toString() + '-p', position: '', rank: '', name: '' }],
-  reason: '',
-});
-
 interface OrderGeneratorProps {
-    orders: OrderItem[];
-    setOrders: React.Dispatch<React.SetStateAction<OrderItem[]>>;
     currentIndex: number;
     setCurrentIndex: React.Dispatch<React.SetStateAction<number>>;
     onBack: () => void;
     onManageData: () => void;
 }
 
-const OrderGenerator: React.FC<OrderGeneratorProps> = ({ orders, setOrders, currentIndex, setCurrentIndex, onBack, onManageData }) => {
+const OrderGenerator: React.FC<OrderGeneratorProps> = ({ currentIndex, setCurrentIndex, onBack, onManageData }) => {
+  const { orders, setOrders } = useData();
   const [isSettingsOpen, setSettingsOpen] = useState(false);
+  const { theme } = useTheme();
 
   const currentOrder = orders[currentIndex];
 
@@ -249,6 +240,19 @@ const OrderGenerator: React.FC<OrderGeneratorProps> = ({ orders, setOrders, curr
     setCurrentIndex(prev => Math.max(0, Math.min(prev, newOrders.length - 1)));
   };
 
+  const sortOrders = () => {
+    const actionOrder = DISCIPLINARY_ACTIONS.map(a => a.value);
+    
+    const sortedOrders = [...orders].sort((a, b) => {
+        const indexA = actionOrder.indexOf(a.disciplinaryAction);
+        const indexB = actionOrder.indexOf(b.disciplinaryAction);
+        return indexA - indexB;
+    });
+
+    setOrders(sortedOrders);
+    setCurrentIndex(0); // Reset to first item after sort
+  };
+
   const generateTextForItem = useCallback((item: OrderItem): string => {
     const actionDetails = DISCIPLINARY_ACTIONS.find(a => a.value === item.disciplinaryAction);
     const statutePoint = actionDetails?.statute || '';
@@ -263,8 +267,12 @@ const OrderGenerator: React.FC<OrderGeneratorProps> = ({ orders, setOrders, curr
         const reasonClause = item.reason ? `, який ${item.reason},` : `,`;
         return `${baseIntro} ${personDetails}${reasonClause} притягнути до дисциплінарної відповідальності та накласти дисциплінарне стягнення «${actionName}»`;
     } else {
-        const personsList = item.persons.map(p => `\t${p.position} ${p.rank} ${formatName(p.name)};`).join('\n');
-        const reasonClause = item.reason ? `\n\t, які ${item.reason}` : '';
+        const personsList = item.persons.map((p, index) => {
+            const personDetails = `\t${p.position} ${p.rank} ${formatName(p.name)}`;
+            const terminator = (item.reason && index === item.persons.length - 1) ? ',' : ';';
+            return `${personDetails}${terminator}`;
+        }).join('\n');
+        const reasonClause = item.reason ? `\n\tякі ${item.reason}` : '';
         return `${baseIntro} притягнути до дисциплінарної відповідальності та накласти дисциплінарне стягнення «${actionName}»:\n${personsList}${reasonClause}`;
     }
   }, []);
@@ -296,11 +304,12 @@ const OrderGenerator: React.FC<OrderGeneratorProps> = ({ orders, setOrders, curr
               <Button onClick={goToNext} disabled={currentIndex === orders.length - 1} variant="secondary"><ArrowRightIcon className="w-5 h-5" /></Button>
             </div>
             <div className="flex items-center gap-2">
+                <Button onClick={sortOrders} variant="secondary" title="Сортувати за видом стягнення"><ArrowsUpDownIcon className="w-5 h-5" /></Button>
                 <Button onClick={addOrder} variant="secondary"><PlusIcon className="w-5 h-5 sm:mr-2" /><span className="hidden sm:inline">Новий</span></Button>
                 <Button onClick={removeCurrentOrder} variant="danger" disabled={orders.length <= 1}><TrashIcon className="w-5 h-5" /></Button>
             </div>
           </div>
-          {currentOrder && <OrderForm key={currentOrder.id} order={currentOrder} onUpdate={updateOrder} isOnlyItem={orders.length === 1} />}
+          {currentOrder && <OrderForm key={currentOrder.id} order={currentOrder} onUpdate={updateOrder} isOnlyItem={orders.length === 1} theme={theme} />}
         </div>
         
         <div className="lg:col-span-2">
@@ -314,14 +323,11 @@ const OrderGenerator: React.FC<OrderGeneratorProps> = ({ orders, setOrders, curr
 const App: React.FC = () => {
     const [view, setView] = useState<'home' | 'orderGenerator' | 'dataManagement'>('home');
     
-    // Lifted state for OrderGenerator
-    const [orders, setOrders] = useState<OrderItem[]>([createNewOrderItem()]);
+    // Index is local to the generator view
     const [currentIndex, setCurrentIndex] = useState(0);
 
     if (view === 'orderGenerator') {
         return <OrderGenerator 
-            orders={orders}
-            setOrders={setOrders}
             currentIndex={currentIndex}
             setCurrentIndex={setCurrentIndex}
             onBack={() => setView('home')} 

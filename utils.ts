@@ -1,3 +1,5 @@
+import { OrderItem, DisciplinaryAction } from './types';
+
 /**
  * Formats a full name string according to the rule: LASTNAME FirstName Patronymic.
  * @param fullName The full name to format.
@@ -48,3 +50,15 @@ export const getReportPlural = (reportNumberString: string): string => {
     const count = reportNumberString.split(',').filter(Boolean).length;
     return count > 1 ? 'рапортів' : 'рапорту';
 };
+
+export const createNewOrderItem = (): OrderItem => ({
+  id: Date.now().toString(),
+  orderType: 'single',
+  reportDate: '',
+  reportNumber: '',
+  reportAuthorPosition: '',
+  disciplinaryAction: DisciplinaryAction.REPRIMAND,
+  violatedStatutes: '11',
+  persons: [{ id: Date.now().toString() + '-p', position: '', rank: '', name: '' }],
+  reason: '',
+});

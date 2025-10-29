@@ -1,17 +1,19 @@
-import React, { useEffect } from 'react';
+import React, { forwardRef, useEffect } from 'react';
 
 interface CardProps {
     children: React.ReactNode;
     className?: string;
+    [key: string]: any; // Allow other props like onKeyDown
 }
 
-export const Card: React.FC<CardProps> = ({ children, className }) => {
+export const Card = forwardRef<HTMLDivElement, CardProps>(({ children, className, ...props }, ref) => {
     return (
-        <div className={`bg-secondary border border-border rounded-xl p-6 shadow-glow-white-subtle transition-all duration-300 ${className}`}>
+        <div ref={ref} className={`bg-secondary border border-border rounded-xl p-6 shadow-glow-white-subtle transition-all duration-300 ${className}`} {...props}>
             {children}
         </div>
     );
-};
+});
+Card.displayName = 'Card';
 
 
 interface ModalProps {
